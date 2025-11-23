@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "543844282628",
+    "project_id": "obedienceapp-d420d",
+    "storage_bucket": "obedienceapp-d420d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:543844282628:android:ab50e6a2aceb9eb9f92051",
+        "android_client_info": {
+          "package_name": "com.example.obedience_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAko2C1dfe2hQoK16anThT1ByeoIbR5jqw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
