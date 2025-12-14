@@ -9,48 +9,6 @@ import 'widgets/super_kawaii_bubble.dart';
 class DomDashboard extends StatelessWidget {
   const DomDashboard({super.key});
 
-  /// DAILY RESET CHECKER – same timing logic, but NO points given here
-  Future<void> _checkDailyReset(DocumentSnapshot doc) async {
-    final data = doc.data() as Map<String, dynamic>;
-
-    if (data['type'] != 'daily') return;
-    if (data['resetMode'] != 'auto') return;
-
-    final lastReset = data['lastReset'];
-    final int hour = data['dailyResetHour'] ?? 0;
-    final int minute = data['dailyResetMinute'] ?? 0;
-
-    final now = DateTime.now();
-    final resetToday = DateTime(now.year, now.month, now.day, hour, minute);
-
-    DateTime last;
-
-    if (lastReset == null) {
-      last = resetToday.subtract(const Duration(days: 1));
-    } else if (lastReset is Timestamp) {
-      last = lastReset.toDate();
-    } else if (lastReset is String) {
-      try {
-        last = DateTime.parse(lastReset);
-      } catch (_) {
-        last = resetToday.subtract(const Duration(days: 1));
-      }
-    } else {
-      return;
-    }
-
-    final lastSlot = DateTime(last.year, last.month, last.day, hour, minute);
-    final bool shouldReset =
-        now.isAfter(resetToday) && lastSlot.isBefore(resetToday);
-
-    if (!shouldReset) return;
-
-    await FirebaseFirestore.instance.collection('tasks').doc(doc.id).update({
-      'currentCount': 0,
-      'lastReset': Timestamp.fromDate(now),
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser!.uid;
@@ -111,7 +69,8 @@ class DomDashboard extends StatelessWidget {
                     final doc = docs[index];
                     final data = doc.data() as Map<String, dynamic>;
 
-                    _checkDailyReset(doc);
+                    // 👇 IMPORTANT:
+                    // No auto-reset or point awarding here anymore.
 
                     final title = data['title'] ?? "";
                     final description = data['description'] ?? "";

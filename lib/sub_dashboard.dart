@@ -9,66 +9,6 @@ import 'pairing_screen.dart';
 class SubDashboard extends StatelessWidget {
   const SubDashboard({super.key});
 
-  // 🔁 AUTO DAILY RESET + AWARD / PENALTY
-  void _checkDailyReset(DocumentSnapshot doc) async {
-    final data = doc.data() as Map<String, dynamic>;
-
-    if (data['type'] != 'daily') return;
-    if (data['resetMode'] != 'auto') return;
-
-    final lastReset = data['lastReset'];
-    final int hour = data['dailyResetHour'] ?? 0;
-    final int minute = data['dailyResetMinute'] ?? 0;
-
-    final now = DateTime.now();
-    final todayResetTime = DateTime(now.year, now.month, now.day, hour, minute);
-
-    DateTime? last;
-
-    if (lastReset == null) {
-      last = DateTime.fromMillisecondsSinceEpoch(0);
-    } else if (lastReset is Timestamp) {
-      last = lastReset.toDate();
-    } else if (lastReset is String) {
-      try {
-        last = DateTime.parse(lastReset);
-      } catch (_) {
-        last = DateTime.fromMillisecondsSinceEpoch(0);
-      }
-    }
-
-    if (last == null) return;
-
-    final bool shouldReset =
-        now.isAfter(todayResetTime) && last.isBefore(todayResetTime);
-
-    if (!shouldReset) return;
-
-    final int current = data['currentCount'] ?? 0;
-    final int required = data['requiredCount'] ?? 1;
-    final int reward = data['pointsReward'] ?? 0;
-    final int penalty = data['pointsPenalty'] ?? 0;
-
-    final String? subUid = data['assignedTo'];
-
-    if (subUid != null) {
-      if (current >= required && reward > 0) {
-        await FirebaseFirestore.instance.collection('users').doc(subUid).update(
-          {'points': FieldValue.increment(reward)},
-        );
-      } else if (current < required && penalty > 0) {
-        await FirebaseFirestore.instance.collection('users').doc(subUid).update(
-          {'points': FieldValue.increment(-penalty)},
-        );
-      }
-    }
-
-    await FirebaseFirestore.instance.collection('tasks').doc(doc.id).update({
-      'currentCount': 0,
-      'lastReset': Timestamp.fromDate(now),
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser!.uid;
@@ -151,8 +91,6 @@ class SubDashboard extends StatelessWidget {
                     final doc = tasks[index];
                     final task = doc.data() as Map<String, dynamic>;
 
-                    _checkDailyReset(doc);
-
                     final title = task['title'] ?? '';
                     final description = task['description'] ?? '';
                     final required = task['requiredCount'] ?? 1;
@@ -163,9 +101,7 @@ class SubDashboard extends StatelessWidget {
                     final String subUid = task['assignedTo'] ?? uid;
 
                     return Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: 5,
-                      ), // ← half spacing
+                      padding: const EdgeInsets.only(bottom: 5),
                       child: Center(
                         child: FractionallySizedBox(
                           widthFactor: 1,
@@ -173,7 +109,7 @@ class SubDashboard extends StatelessWidget {
                             margin: const EdgeInsets.symmetric(
                               vertical: 0.1,
                               horizontal: 10,
-                            ), // 👈 custom spacing
+                            ),
                             padding: const EdgeInsets.symmetric(
                               vertical: 4,
                               horizontal: 14,
@@ -191,6 +127,7 @@ class SubDashboard extends StatelessWidget {
                                     color: Color(0xFFB8479B),
                                   ),
                                 ),
+
                                 const SizedBox(height: 2),
 
                                 Text(
@@ -227,32 +164,13 @@ class SubDashboard extends StatelessWidget {
                                     IconButton(
                                       onPressed: current > 0
                                           ? () async {
-                                              final wasComplete =
-                                                  current >= required;
                                               final newCount = current - 1;
-                                              final willBeComplete =
-                                                  newCount >= required;
-
                                               await FirebaseFirestore.instance
                                                   .collection('tasks')
                                                   .doc(doc.id)
                                                   .update({
                                                     'currentCount': newCount,
                                                   });
-
-                                              if (wasComplete &&
-                                                  !willBeComplete &&
-                                                  pointsPenalty > 0) {
-                                                await FirebaseFirestore.instance
-                                                    .collection('users')
-                                                    .doc(subUid)
-                                                    .update({
-                                                      'points':
-                                                          FieldValue.increment(
-                                                            -pointsPenalty,
-                                                          ),
-                                                    });
-                                              }
                                             }
                                           : null,
                                       icon: const Icon(

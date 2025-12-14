@@ -12,66 +12,6 @@ import 'reward_requests_screen.dart';
 class DomDashboard extends StatelessWidget {
   const DomDashboard({super.key});
 
-  // 🔁 AUTO RESET + AWARD / PENALTY
-  void _checkDailyReset(DocumentSnapshot doc) async {
-    final data = doc.data() as Map<String, dynamic>;
-
-    if (data['type'] != 'daily') return;
-    if (data['resetMode'] != 'auto') return;
-
-    final lastReset = data['lastReset'];
-    final int hour = data['dailyResetHour'] ?? 0;
-    final int minute = data['dailyResetMinute'] ?? 0;
-
-    final now = DateTime.now();
-    final todayResetTime = DateTime(now.year, now.month, now.day, hour, minute);
-
-    DateTime? last;
-
-    if (lastReset == null) {
-      last = DateTime.fromMillisecondsSinceEpoch(0);
-    } else if (lastReset is Timestamp) {
-      last = lastReset.toDate();
-    } else if (lastReset is String) {
-      try {
-        last = DateTime.parse(lastReset);
-      } catch (_) {
-        last = DateTime.fromMillisecondsSinceEpoch(0);
-      }
-    }
-
-    if (last == null) return;
-
-    final bool shouldReset =
-        now.isAfter(todayResetTime) && last.isBefore(todayResetTime);
-
-    if (!shouldReset) return;
-
-    final int current = data['currentCount'] ?? 0;
-    final int required = data['requiredCount'] ?? 1;
-    final int reward = data['pointsReward'] ?? 0;
-    final int penalty = data['pointsPenalty'] ?? 0;
-
-    final String? subUid = data['assignedTo'];
-
-    if (subUid != null) {
-      if (current >= required && reward > 0) {
-        await FirebaseFirestore.instance.collection('users').doc(subUid).update(
-          {'points': FieldValue.increment(reward)},
-        );
-      } else if (current < required && penalty > 0) {
-        await FirebaseFirestore.instance.collection('users').doc(subUid).update(
-          {'points': FieldValue.increment(-penalty)},
-        );
-      }
-    }
-
-    await FirebaseFirestore.instance.collection('tasks').doc(doc.id).update({
-      'currentCount': 0,
-      'lastReset': Timestamp.fromDate(now),
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser!.uid;
@@ -162,8 +102,6 @@ class DomDashboard extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final doc = docs[index];
                     final data = doc.data() as Map<String, dynamic>;
-
-                    _checkDailyReset(doc);
 
                     final title = data['title'] ?? "";
                     final description = data['description'] ?? "";

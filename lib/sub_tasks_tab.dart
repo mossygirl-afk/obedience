@@ -37,9 +37,8 @@ class SubTasksTab extends StatelessWidget {
           child: StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('tasks')
-                .where('assignedTo', isEqualTo: myUid) // ✔ FIXED
+                .where('assignedTo', isEqualTo: myUid)
                 .snapshots(),
-
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
@@ -77,17 +76,14 @@ class SubTasksTab extends StatelessWidget {
                         minWidth: 260,
                         maxHeight: 230,
                       ),
-
                       child: SuperKawaiiBubble(
                         padding: const EdgeInsets.symmetric(
                           vertical: 4,
                           horizontal: 18,
                         ),
-
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
-
                           children: [
                             Text(
                               title,
@@ -97,9 +93,7 @@ class SubTasksTab extends StatelessWidget {
                                 color: Color(0xFFB8479B),
                               ),
                             ),
-
                             const SizedBox(height: 6),
-
                             Text(
                               description,
                               style: const TextStyle(
@@ -107,9 +101,7 @@ class SubTasksTab extends StatelessWidget {
                                 color: Colors.black87,
                               ),
                             ),
-
                             const SizedBox(height: 10),
-
                             Text(
                               "Progress: $current / $required",
                               style: const TextStyle(
@@ -117,9 +109,7 @@ class SubTasksTab extends StatelessWidget {
                                 color: Color(0xFFB8479B),
                               ),
                             ),
-
                             const SizedBox(height: 14),
-
                             Row(
                               children: [
                                 // ➖ Decrease

@@ -3,13 +3,29 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'login_screen.dart';
 import 'role_selection_screen.dart';
 import 'main_navigation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+
+  if (kIsWeb) {
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyA8jVRFRxVAV1paLC0ump5vwtzZ0fAaVfI",
+        authDomain: "obedienceapp-d420d.firebaseapp.com",
+        projectId: "obedienceapp-d420d",
+        storageBucket: "obedienceapp-d420d.firebasestorage.app",
+        messagingSenderId: "543844282628",
+        appId: "1:543844282628:web:64bc360bb41f056df92051",
+      ),
+    );
+  } else {
+    await Firebase.initializeApp();
+  }
+
   runApp(const MyApp());
 }
 
@@ -96,6 +112,89 @@ class MyApp extends StatelessWidget {
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
+  /// Make sure we only run auto-resets once per app launch
+  static bool _alreadyChecked = false;
+
+  /// 🔁 AUTO RESET + AWARD / PENALTY (global, not per-screen)
+  Future<void> _runAutoResets() async {
+    final firestore = FirebaseFirestore.instance;
+    final now = DateTime.now();
+
+    // Grab all tasks that are auto-reset
+    final tasksQuery = await firestore
+        .collection('tasks')
+        .where('resetMode', isEqualTo: 'auto')
+        .get();
+
+    for (final doc in tasksQuery.docs) {
+      final data = doc.data();
+
+      // Only daily tasks
+      if (data['type'] != 'daily') continue;
+
+      final int? hour = data['dailyResetHour'];
+      final int? minute = data['dailyResetMinute'];
+
+      // If task doesn't have a configured time, skip it
+      if (hour == null || minute == null) continue;
+
+      final DateTime todayReset = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        hour,
+        minute,
+      );
+
+      final dynamic lastResetRaw = data['lastReset'];
+
+      DateTime lastResetTime;
+      if (lastResetRaw is Timestamp) {
+        lastResetTime = lastResetRaw.toDate();
+      } else if (lastResetRaw is String) {
+        try {
+          lastResetTime = DateTime.parse(lastResetRaw);
+        } catch (_) {
+          lastResetTime = DateTime.fromMillisecondsSinceEpoch(0);
+        }
+      } else {
+        // Never reset before
+        lastResetTime = DateTime.fromMillisecondsSinceEpoch(0);
+      }
+
+      // ✅ This alone is enough to prevent double-awards
+      final bool shouldReset =
+          now.isAfter(todayReset) && lastResetTime.isBefore(todayReset);
+
+      if (!shouldReset) continue;
+
+      final int current = data['currentCount'] ?? 0;
+      final int required = data['requiredCount'] ?? 1;
+      final int reward = data['pointsReward'] ?? 0;
+      final int penalty = data['pointsPenalty'] ?? 0;
+      final String? subUid = data['assignedTo'];
+
+      // 🎯 Same logic as manual: complete = reward, not complete = penalty
+      if (subUid != null) {
+        if (current >= required && reward > 0) {
+          await firestore.collection('users').doc(subUid).update({
+            'points': FieldValue.increment(reward),
+          });
+        } else if (current < required && penalty > 0) {
+          await firestore.collection('users').doc(subUid).update({
+            'points': FieldValue.increment(-penalty),
+          });
+        }
+      }
+
+      // Reset the task and bump lastReset
+      await doc.reference.update({
+        'currentCount': 0,
+        'lastReset': Timestamp.fromDate(now),
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -128,16 +227,23 @@ class AuthGate extends StatelessWidget {
               );
             }
 
-            final data = roleSnapshot.data!.data() as Map<String, dynamic>?;
+            final data =
+                roleSnapshot.data!.data() as Map<String, dynamic>? ?? {};
 
-            final role = data?['role'];
+            final role = data['role'];
 
             // no role set yet
             if (role == null) {
               return const RoleSelectionScreen();
             }
 
-            // ✅ role set → go to bottom navigation with Tasks + Rewards
+            // ⭐ Trigger auto reset exactly once per app launch
+            if (!_alreadyChecked) {
+              _alreadyChecked = true;
+              _runAutoResets();
+            }
+
+            // 😊 go to main app
             return MainNavigation(role: role);
           },
         );

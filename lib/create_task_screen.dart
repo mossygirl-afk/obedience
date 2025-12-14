@@ -133,7 +133,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         'assignedTo': assignedToUid,
         'assignedBy': assignedByUid,
         'createdAt': Timestamp.now(),
-        'lastReset': Timestamp.now(),
+        'lastReset': Timestamp.now(), // used by main.dart auto reset
       });
 
       if (mounted) Navigator.pop(context);

@@ -98,6 +98,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
           'resetMode': resetMode,
           'dailyResetHour': dailyHour,
           'dailyResetMinute': dailyMinute,
+          // lastReset is left alone; main.dart will handle updating it on reset
         });
 
     setState(() => loading = false);
