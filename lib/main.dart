@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_timezone/flutter_timezone.dart'; // ✅ ADDED
+
 import 'login_screen.dart';
 import 'role_selection_screen.dart';
 import 'main_navigation.dart';
@@ -40,15 +41,12 @@ class MyApp extends StatelessWidget {
       // 🌸 Global Kawaii Pink Theme
       theme: ThemeData(
         useMaterial3: true,
-
         scaffoldBackgroundColor: const Color(0xFFFFE6F2),
-
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFFF8ED1),
           primary: const Color(0xFFFF8ED1),
           secondary: const Color(0xFFFFD4EC),
         ),
-
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFFFFC5E8),
           foregroundColor: Color(0xFF7F2A5F),
@@ -60,7 +58,6 @@ class MyApp extends StatelessWidget {
             color: Color(0xFF7F2A5F),
           ),
         ),
-
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFF8ED1),
@@ -70,14 +67,9 @@ class MyApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(40),
             ),
             elevation: 8,
-            shadowColor: Colors.pinkAccent.withOpacity(0.3),
-            textStyle: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            shadowColor: Colors.pinkAccent,
           ),
         ),
-
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFFFFDFF4),
@@ -112,10 +104,30 @@ class MyApp extends StatelessWidget {
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
-  /// Make sure we only run auto-resets once per app launch
   static bool _alreadyChecked = false;
 
-  /// 🔁 AUTO RESET + AWARD / PENALTY (global, not per-screen)
+  // ✅ save timezone only once per app launch
+  static bool _timezoneSavedThisLaunch = false;
+
+  // ✅ writes users/{uid}.timezone into Firestore
+  Future<void> _ensureTimezoneSaved(String uid) async {
+    if (_timezoneSavedThisLaunch) return;
+    _timezoneSavedThisLaunch = true;
+
+    try {
+      final tz =
+          await FlutterTimezone.getLocalTimezone(); // ✅ correct plugin call
+
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'timezone': tz,
+        'timezoneUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint("Timezone save failed: $e");
+    }
+  }
+
+  /// AUTO RESET + AWARD / PENALTY (global, not per-screen)
   Future<void> _runAutoResets() async {
     final firestore = FirebaseFirestore.instance;
     final now = DateTime.now();
@@ -138,13 +150,8 @@ class AuthGate extends StatelessWidget {
       // If task doesn't have a configured time, skip it
       if (hour == null || minute == null) continue;
 
-      final DateTime todayReset = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        hour,
-        minute,
-      );
+      final DateTime todayReset =
+          DateTime(now.year, now.month, now.day, hour, minute);
 
       final dynamic lastResetRaw = data['lastReset'];
 
@@ -174,7 +181,7 @@ class AuthGate extends StatelessWidget {
       final int penalty = data['pointsPenalty'] ?? 0;
       final String? subUid = data['assignedTo'];
 
-      // 🎯 Same logic as manual: complete = reward, not complete = penalty
+      // Same logic as manual: complete = reward, not complete = penalty
       if (subUid != null) {
         if (current >= required && reward > 0) {
           await firestore.collection('users').doc(subUid).update({
@@ -200,36 +207,58 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
-        // ⏳ waiting for auth
+        // waiting for auth
         if (authSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // ❌ not logged in
+        // not logged in
         if (!authSnapshot.hasData) {
           return const LoginScreen();
         }
 
         final uid = authSnapshot.data!.uid;
 
-        // ✅ logged in → watch user doc for role
+        // ✅ save timezone as soon as we know uid
+        _ensureTimezoneSaved(uid);
+
+        // logged in -> watch user doc for role
         return StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('users')
               .doc(uid)
               .snapshots(),
           builder: (context, roleSnapshot) {
-            if (!roleSnapshot.hasData) {
+            if (roleSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               );
             }
 
+            if (roleSnapshot.hasError) {
+              return Scaffold(
+                body: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      "Firestore error:\n${roleSnapshot.error}",
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            if (!roleSnapshot.hasData || roleSnapshot.data == null) {
+              return const Scaffold(
+                body: Center(child: Text("No user document yet.")),
+              );
+            }
+
             final data =
                 roleSnapshot.data!.data() as Map<String, dynamic>? ?? {};
-
             final role = data['role'];
 
             // no role set yet
@@ -237,13 +266,13 @@ class AuthGate extends StatelessWidget {
               return const RoleSelectionScreen();
             }
 
-            // ⭐ Trigger auto reset exactly once per app launch
+            // trigger auto reset exactly once per app launch
             if (!_alreadyChecked) {
               _alreadyChecked = true;
               _runAutoResets();
             }
 
-            // 😊 go to main app
+            // go to main app
             return MainNavigation(role: role);
           },
         );

@@ -36,11 +36,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       // Create Firebase Auth account
-      UserCredential userCred = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
-            email: emailController.text.trim(),
-            password: passwordController.text.trim(),
-          );
+      UserCredential userCred =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
 
       final uid = userCred.user!.uid;
 
