@@ -17,13 +17,15 @@ class SubDashboard extends StatelessWidget {
     return raw.toString().trim();
   }
 
-  void _showTaskCommentSheet({
+  void _showTaskEditSheet({
     required BuildContext context,
     required String taskId,
     required String taskTitle,
     required String existingComment,
+    required String existingCategory,
   }) {
     final commentController = TextEditingController(text: existingComment);
+    final categoryController = TextEditingController(text: existingCategory);
 
     showModalBottomSheet(
       context: context,
@@ -55,6 +57,14 @@ class SubDashboard extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 TextField(
+                  controller: categoryController,
+                  decoration: const InputDecoration(
+                    labelText: "Category",
+                    hintText: "Morning, Night, Chores, etc.",
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
                   controller: commentController,
                   maxLines: 4,
                   decoration: const InputDecoration(
@@ -72,12 +82,15 @@ class SubDashboard extends StatelessWidget {
                           await FirebaseFirestore.instance
                               .collection('tasks')
                               .doc(taskId)
-                              .update({'subComment': FieldValue.delete()});
+                              .update({
+                            'subComment': FieldValue.delete(),
+                            'subCommentUpdatedAt': FieldValue.delete(),
+                          });
 
                           if (context.mounted) Navigator.pop(context);
                         },
                         child: const Text(
-                          "Clear",
+                          "Clear Comment",
                           style: TextStyle(color: Colors.redAccent),
                         ),
                       ),
@@ -86,21 +99,28 @@ class SubDashboard extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: () async {
                           final comment = commentController.text.trim();
+                          final category =
+                              categoryController.text.trim().isEmpty
+                                  ? "General"
+                                  : categoryController.text.trim();
+
+                          final updateData = <String, dynamic>{
+                            'category': category,
+                          };
 
                           if (comment.isEmpty) {
-                            await FirebaseFirestore.instance
-                                .collection('tasks')
-                                .doc(taskId)
-                                .update({'subComment': FieldValue.delete()});
+                            updateData['subComment'] = FieldValue.delete();
+                            updateData['subCommentUpdatedAt'] =
+                                FieldValue.delete();
                           } else {
-                            await FirebaseFirestore.instance
-                                .collection('tasks')
-                                .doc(taskId)
-                                .update({
-                              'subComment': comment,
-                              'subCommentUpdatedAt': Timestamp.now(),
-                            });
+                            updateData['subComment'] = comment;
+                            updateData['subCommentUpdatedAt'] = Timestamp.now();
                           }
+
+                          await FirebaseFirestore.instance
+                              .collection('tasks')
+                              .doc(taskId)
+                              .update(updateData);
 
                           if (context.mounted) Navigator.pop(context);
                         },
@@ -236,6 +256,8 @@ class SubDashboard extends StatelessWidget {
                                 final isComplete = current >= required;
                                 final String existingComment =
                                     task['subComment'] ?? '';
+                                final String existingCategory =
+                                    _categoryOf(task);
 
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 5),
@@ -244,11 +266,12 @@ class SubDashboard extends StatelessWidget {
                                       widthFactor: 1,
                                       child: GestureDetector(
                                         onTap: () {
-                                          _showTaskCommentSheet(
+                                          _showTaskEditSheet(
                                             context: context,
                                             taskId: doc.id,
                                             taskTitle: title,
                                             existingComment: existingComment,
+                                            existingCategory: existingCategory,
                                           );
                                         },
                                         child: SuperKawaiiBubble(
