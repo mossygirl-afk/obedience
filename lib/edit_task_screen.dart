@@ -17,14 +17,11 @@ class EditTaskScreen extends StatefulWidget {
 
 class _EditTaskScreenState extends State<EditTaskScreen> {
   late TextEditingController titleController;
+  late TextEditingController categoryController;
   late TextEditingController descriptionController;
   late TextEditingController requiredCountController;
   late TextEditingController pointsRewardController;
   late TextEditingController pointsPenaltyController;
-
-  // DAILY ONLY
-  String resetMode = 'manual';
-  TimeOfDay? dailyResetTime;
 
   bool loading = false;
 
@@ -35,6 +32,9 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     final data = widget.taskData;
 
     titleController = TextEditingController(text: data['title'] ?? "");
+    categoryController = TextEditingController(
+      text: data['category'] ?? "General",
+    );
     descriptionController = TextEditingController(
       text: data['description'] ?? "",
     );
@@ -47,62 +47,43 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     pointsPenaltyController = TextEditingController(
       text: "${data['pointsPenalty'] ?? 0}",
     );
-
-    resetMode = data['resetMode'] ?? 'manual';
-
-    if (data['dailyResetHour'] != null && data['dailyResetMinute'] != null) {
-      dailyResetTime = TimeOfDay(
-        hour: data['dailyResetHour'],
-        minute: data['dailyResetMinute'],
-      );
-    }
-  }
-
-  Future<void> pickDailyResetTime() async {
-    final time = await showTimePicker(
-      context: context,
-      initialTime: dailyResetTime ?? TimeOfDay.now(),
-    );
-    if (time == null) return;
-
-    setState(() {
-      dailyResetTime = time;
-    });
   }
 
   Future<void> updateTask() async {
     setState(() => loading = true);
 
-    int requiredCount = int.tryParse(requiredCountController.text) ?? 1;
-    int pointsReward = int.tryParse(pointsRewardController.text) ?? 0;
-    int pointsPenalty = int.tryParse(pointsPenaltyController.text) ?? 0;
+    final int requiredCount =
+        int.tryParse(requiredCountController.text.trim()) ?? 1;
+    final int pointsReward =
+        int.tryParse(pointsRewardController.text.trim()) ?? 0;
+    final int pointsPenalty =
+        int.tryParse(pointsPenaltyController.text.trim()) ?? 0;
 
-    int? dailyHour;
-    int? dailyMinute;
-
-    if (resetMode == 'auto' && dailyResetTime != null) {
-      dailyHour = dailyResetTime!.hour;
-      dailyMinute = dailyResetTime!.minute;
-    }
+    final String category = categoryController.text.trim().isEmpty
+        ? "General"
+        : categoryController.text.trim();
 
     await FirebaseFirestore.instance
         .collection('tasks')
         .doc(widget.taskId)
         .update({
-          'title': titleController.text.trim(),
-          'description': descriptionController.text.trim(),
-          'requiredCount': requiredCount,
-          'pointsReward': pointsReward,
-          'pointsPenalty': pointsPenalty,
-          'type': 'daily', // forced daily-only
-          'resetMode': resetMode,
-          'dailyResetHour': dailyHour,
-          'dailyResetMinute': dailyMinute,
-          // lastReset is left alone; main.dart will handle updating it on reset
-        });
+      'title': titleController.text.trim(),
+      'category': category,
+      'description': descriptionController.text.trim(),
+      'requiredCount': requiredCount,
+      'pointsReward': pointsReward,
+      'pointsPenalty': pointsPenalty,
+      'type': 'daily',
+      'resetMode': 'manual',
+      'dailyResetHour': FieldValue.delete(),
+      'dailyResetMinute': FieldValue.delete(),
+      'lastReset': FieldValue.delete(),
+    });
 
-    setState(() => loading = false);
-    Navigator.pop(context);
+    if (mounted) {
+      setState(() => loading = false);
+      Navigator.pop(context);
+    }
   }
 
   Future<void> deleteTask() async {
@@ -111,7 +92,18 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
         .doc(widget.taskId)
         .delete();
 
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    categoryController.dispose();
+    descriptionController.dispose();
+    requiredCountController.dispose();
+    pointsRewardController.dispose();
+    pointsPenaltyController.dispose();
+    super.dispose();
   }
 
   @override
@@ -120,7 +112,10 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
       appBar: AppBar(
         title: const Text("Edit Daily Task"),
         actions: [
-          IconButton(onPressed: deleteTask, icon: const Icon(Icons.delete)),
+          IconButton(
+            onPressed: deleteTask,
+            icon: const Icon(Icons.delete),
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -131,11 +126,21 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
               controller: titleController,
               decoration: const InputDecoration(labelText: "Title"),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: categoryController,
+              decoration: const InputDecoration(
+                labelText: "Category",
+                hintText: "Morning, Evening, Chores, etc.",
+              ),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: descriptionController,
               maxLines: 3,
               decoration: const InputDecoration(labelText: "Description"),
             ),
+            const SizedBox(height: 12),
             TextField(
               controller: requiredCountController,
               keyboardType: TextInputType.number,
@@ -143,6 +148,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                 labelText: "Minimum required count",
               ),
             ),
+            const SizedBox(height: 12),
             TextField(
               controller: pointsRewardController,
               keyboardType: TextInputType.number,
@@ -150,6 +156,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                 labelText: "Points Reward (complete)",
               ),
             ),
+            const SizedBox(height: 12),
             TextField(
               controller: pointsPenaltyController,
               keyboardType: TextInputType.number,
@@ -157,35 +164,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                 labelText: "Points Penalty (un-complete)",
               ),
             ),
-
-            const SizedBox(height: 20),
-            const Text("Daily Reset Options", style: TextStyle(fontSize: 16)),
-
-            RadioListTile(
-              title: const Text("Manual Reset"),
-              value: 'manual',
-              groupValue: resetMode,
-              onChanged: (v) => setState(() => resetMode = v!),
-            ),
-            RadioListTile(
-              title: const Text("Auto Reset"),
-              value: 'auto',
-              groupValue: resetMode,
-              onChanged: (v) => setState(() => resetMode = v!),
-            ),
-
-            if (resetMode == 'auto')
-              ElevatedButton(
-                onPressed: pickDailyResetTime,
-                child: Text(
-                  dailyResetTime == null
-                      ? "Pick reset time"
-                      : "Resets at ${dailyResetTime!.hour}:${dailyResetTime!.minute.toString().padLeft(2, '0')}",
-                ),
-              ),
-
             const SizedBox(height: 25),
-
             if (!loading)
               ElevatedButton(
                 onPressed: updateTask,

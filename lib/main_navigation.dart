@@ -44,18 +44,15 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: screens[currentIndex],
-
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: (index) => setState(() => currentIndex = index),
-
         selectedItemColor: const Color(0xFFFF8ED1),
         unselectedItemColor: Colors.grey,
         backgroundColor: const Color(0xFFFFC5E8),
         iconSize: 30,
         elevation: 12,
         type: BottomNavigationBarType.fixed,
-
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.checklist_rounded),

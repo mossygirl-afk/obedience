@@ -117,8 +117,8 @@ class RewardsAdminScreen extends StatelessWidget {
                               children: [
                                 ElevatedButton(
                                   onPressed: () async {
-                                    final batch = FirebaseFirestore.instance
-                                        .batch();
+                                    final batch =
+                                        FirebaseFirestore.instance.batch();
 
                                     final rewardsRef = FirebaseFirestore
                                         .instance
@@ -240,16 +240,14 @@ class RewardsAdminScreen extends StatelessWidget {
                     final data = tDoc.data() as Map<String, dynamic>;
 
                     final title = data['title'] ?? "Untitled";
+                    final category = (data['category'] == null ||
+                            data['category'].toString().trim().isEmpty)
+                        ? "General"
+                        : data['category'].toString().trim();
                     final description = data['description'] ?? "";
                     final int requiredCount = data['requiredCount'] ?? 1;
                     final int reward = data['pointsReward'] ?? 0;
                     final int penalty = data['pointsPenalty'] ?? 0;
-                    final String type = data['taskType'] ?? 'one_time';
-                    final String resetMode = data['resetMode'] ?? 'manual';
-
-                    final Timestamp? deadline = data['deadline'];
-                    final int dailyHour = data['dailyResetHour'] ?? 0;
-                    final int dailyMinute = data['dailyResetMinute'] ?? 0;
                     final String subUid = data['requestedBy'];
 
                     return Padding(
@@ -279,17 +277,6 @@ class RewardsAdminScreen extends StatelessWidget {
                             Text("Required Count: $requiredCount"),
                             Text("Reward: $reward pts"),
                             Text("Penalty: $penalty pts"),
-                            Text("Type: $type"),
-                            Text("Reset Mode: $resetMode"),
-
-                            if (type == 'one_time' && deadline != null)
-                              Text("Deadline: ${deadline.toDate()}"),
-
-                            if (type == 'daily')
-                              Text(
-                                "Resets at ${dailyHour.toString().padLeft(2, '0')}:${dailyMinute.toString().padLeft(2, '0')}",
-                              ),
-
                             const SizedBox(height: 8),
                             Row(
                               children: [
@@ -298,30 +285,27 @@ class RewardsAdminScreen extends StatelessWidget {
                                     await FirebaseFirestore.instance
                                         .collection('tasks')
                                         .add({
-                                          'title': title,
-                                          'description': description,
-                                          'requiredCount': requiredCount,
-                                          'currentCount': 0,
-                                          'pointsReward': reward,
-                                          'pointsPenalty': penalty,
-                                          'type': type,
-                                          'resetMode': resetMode,
-                                          'deadline': deadline,
-                                          'dailyResetHour': dailyHour,
-                                          'dailyResetMinute': dailyMinute,
-                                          'assignedTo': subUid,
-                                          'assignedBy': domUid,
-                                          'createdAt': Timestamp.now(),
-                                          'lastReset': Timestamp.now(),
-                                        });
+                                      'title': title,
+                                      'category': category,
+                                      'description': description,
+                                      'requiredCount': requiredCount,
+                                      'currentCount': 0,
+                                      'pointsReward': reward,
+                                      'pointsPenalty': penalty,
+                                      'type': 'daily',
+                                      'resetMode': 'manual',
+                                      'assignedTo': subUid,
+                                      'assignedBy': domUid,
+                                      'createdAt': Timestamp.now(),
+                                    });
 
                                     await FirebaseFirestore.instance
                                         .collection('taskSuggestions')
                                         .doc(tDoc.id)
                                         .update({
-                                          'status': 'approved',
-                                          'approvedAt': Timestamp.now(),
-                                        });
+                                      'status': 'approved',
+                                      'approvedAt': Timestamp.now(),
+                                    });
 
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -336,7 +320,6 @@ class RewardsAdminScreen extends StatelessWidget {
                                   child: const Text("Approve"),
                                 ),
                                 const SizedBox(width: 8),
-
                                 TextButton(
                                   onPressed: () async {
                                     await FirebaseFirestore.instance

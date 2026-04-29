@@ -27,10 +27,8 @@ class _PairingScreenState extends State<PairingScreen> {
 
   Future<void> _loadUserInfo() async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final snap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
+    final snap =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
     final data = snap.data() as Map<String, dynamic>?;
 
@@ -100,9 +98,8 @@ class _PairingScreenState extends State<PairingScreen> {
 
     setState(() => loading = true);
 
-    final pairRef = FirebaseFirestore.instance
-        .collection('pairCodes')
-        .doc(code);
+    final pairRef =
+        FirebaseFirestore.instance.collection('pairCodes').doc(code);
     final snap = await pairRef.get();
 
     if (!snap.exists) {
@@ -193,9 +190,8 @@ class _PairingScreenState extends State<PairingScreen> {
     setState(() => loading = true);
 
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-    final partnerRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(partnerUid);
+    final partnerRef =
+        FirebaseFirestore.instance.collection('users').doc(partnerUid);
 
     final batch = FirebaseFirestore.instance.batch();
 
@@ -203,9 +199,8 @@ class _PairingScreenState extends State<PairingScreen> {
     batch.update(partnerRef, {'partnerUid': null});
 
     if (code != null && code.isNotEmpty) {
-      final pairRef = FirebaseFirestore.instance
-          .collection('pairCodes')
-          .doc(code);
+      final pairRef =
+          FirebaseFirestore.instance.collection('pairCodes').doc(code);
       batch.delete(pairRef);
     }
 
@@ -247,25 +242,19 @@ class _PairingScreenState extends State<PairingScreen> {
                     'Partner UID: ${partnerUid ?? "none"}',
                     style: const TextStyle(fontSize: 16),
                   ),
-
                   const SizedBox(height: 24),
-
                   ElevatedButton(
                     onPressed: _createPairCode,
                     child: const Text('Generate New Pair Code'),
                   ),
-
                   const SizedBox(height: 24),
-
                   const Divider(),
-
                   const SizedBox(height: 16),
                   const Text(
                     'Join a partner\'s code:',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-
                   TextField(
                     controller: joinController,
                     decoration: const InputDecoration(
@@ -274,14 +263,11 @@ class _PairingScreenState extends State<PairingScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-
                   ElevatedButton(
                     onPressed: _joinPairCode,
                     child: const Text('Join Code'),
                   ),
-
                   const SizedBox(height: 24),
-
                   if (partnerUid != null)
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -291,6 +277,26 @@ class _PairingScreenState extends State<PairingScreen> {
                       onPressed: _unpair,
                       child: const Text('Unpair from current partner'),
                     ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade800,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 14, horizontal: 24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    onPressed: () async {
+                      await FirebaseAuth.instance.signOut();
+                    },
+                    child: const Text(
+                      "Log Out",
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ],
               ),
             ),
